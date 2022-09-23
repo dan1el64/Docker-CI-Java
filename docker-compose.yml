@@ -1,0 +1,127 @@
+version: '3.3'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:$ELK_VERSION
+    volumes:
+      - type: bind
+        source: /root/cpit/Config/elasticsearch/elasticsearch.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+        read_only: true
+      - type: volume
+        source: elasticsearch
+        target: /usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      ES_JAVA_OPTS: "-Xmx2g -Xms2g"
+      ELASTIC_PASSWORD: changeme #58lzfMgjV*wE0_1w0IC
+      discovery.type: single-node
+    networks:
+      - elk
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:$ELK_VERSION
+    volumes:
+      - type: bind
+        source: /root/cpit/Config/logstash/logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
+        read_only: true
+      - type: bind
+        source: /root/cpit/Config/logstash/pipeline
+        target: /usr/share/logstash/pipeline
+        read_only: true
+      - type: bind
+        source: /root/cpit/Logs/ELK/
+        target: /home/logs
+        read_only: true
+    ports:
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+      - "9600:9600"
+    environment:
+      LS_JAVA_OPTS: "-Xmx2g -Xms2g"
+      ELASTICSEARCH_USERNAME: elastic #deicpit
+      ELASTICSEARCH_PASSWORD: changeme #58lzfMgjV*wE0_1w0IC
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:$ELK_VERSION
+    volumes:
+      - type: bind
+        source: /root/cpit/Config/kibana/kibana.yml
+        target: /usr/share/kibana/config/kibana.yml
+        read_only: true
+    ports:
+      - "5601:5601"
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+
+  cpit_dei:
+    build:
+      context: JavaBuild/    
+      args:        
+        TOKEN_GITHUB: $TOKEN_GITHUB
+        REPODEI_GITHUB: $REPODEI_GITHUB    
+    volumes:
+      - type: bind
+        source: /root/cpit/Config/dei
+        target: /app/config
+      - type: bind
+        source: /root/cpit/Logs
+        target: /home/dei-v2/logs
+    ports:
+      - "8080:8080"
+      - "5432:5432/tcp"
+    # depends_on:
+    #   - elasticsearch
+
+
+
+  # cpit_dei:
+  #   image: deicpit/dei:cpit_dei_v1
+  #   volumes:
+  #     - type: bind
+  #       source: /root/cpit/Config/dei
+  #       target: /app/config
+  #     - type: bind
+  #       source: /root/cpit/Logs
+  #       target: /home/dei-v2/logs
+  #   environment:
+  #       TOKEN_GITHUB: $TOKEN_GITHUB
+  #       REPODEI_GITHUB: $REPODEI_GITHUB
+
+  #   ports:
+  #     - "8080:8080"
+  #     - "5432:5432/tcp"
+    # depends_on:
+    #    - cpit_elasticsearch
+
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_storage:/data
+    environment:
+      MINIO_ROOT_USER: Disersoft
+      MINIO_ROOT_PASSWORD: Disersoft1*2040
+      MINIO_ACCESS_KEY: Disersoft1*2040
+      MINIO_SECRET_KEY: Disersoft1*2040
+    command: server --console-address ":9001" /data
+
+networks:
+  elk:
+    driver: bridge
+
+volumes:
+  elasticsearch:
+  minio_storage: {}
