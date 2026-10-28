@@ -1,0 +1,5 @@
+.env
+*.jar
+artifacts/
+Logs/
+.DS_Store
